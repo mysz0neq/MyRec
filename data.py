@@ -11,6 +11,7 @@ def get_data(path:Path=DB_PATH) -> list[tuple[str,str,float]]:
     cursor = conn.cursor()
     cursor.execute('''SELECT * FROM oceny''')
     data = cursor.fetchall()
+    cursor.close()
     try:
         data=[(u,f,float(o)) for u,f,o in data]
     except:
