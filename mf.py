@@ -1,6 +1,3 @@
-"""(uid,fid,rtg)->wagi"""
-from typing import Any
-
 import numpy as np
 from random import shuffle
 from collections import defaultdict,Counter
@@ -16,7 +13,8 @@ class MF:
                  lr_embeddings: float=0.004,
                  lr_biases:float=0.005,
                  reg_user_embeddings: float=0.06,
-                 reg_film_embeddings: float=0.06):
+                 reg_film_embeddings: float=0.06,
+                 scale:float=0.001):
         self.train_set = train_set
         self.test_set = test_set
         self.dim = dim
@@ -34,8 +32,8 @@ class MF:
         self.films_matrix,_=np.linalg.qr(np.random.normal(loc=0,
                                     scale=1,
                                     size=(len(self.films), self.dim)))
-        self.users_matrix*=0.001
-        self.films_matrix*=0.001
+        self.users_matrix*=scale
+        self.films_matrix*=scale
 
         self.users_biases=np.zeros(shape=(len(self.users),))
         self.films_biases=np.zeros(shape=(len(self.films),))
@@ -101,15 +99,20 @@ class MF:
         return loss
 
 class MFExperimental(MF):
+    """Weighing errors by how big a difference it really is for the user.
+    Problem is I don't really know how to compare those two architectures so for now it remains experimental.
+
+    Disclaimer: Needs a lot bigger learning rates than superclass, however I didn't figure out how much bigger."""
     def __init__(self,
                  train_set: list,
                  test_set: list,
                  dim: int = 30,
-                 lr_embeddings: float = 0.004,
-                 lr_biases: float = 0.005,
+                 lr_embeddings: float = 4,
+                 lr_biases: float = 5,
                  reg_user_embeddings: float = 0.06,
-                 reg_film_embeddings: float = 0.06):
-        super().__init__(train_set,test_set,dim,lr_embeddings,lr_biases,reg_user_embeddings,reg_film_embeddings)
+                 reg_film_embeddings: float = 0.06,
+                 scale:float=0.01) -> None:
+        super().__init__(train_set,test_set,dim,lr_embeddings,lr_biases,reg_user_embeddings,reg_film_embeddings,scale)
 
         self.user_ratings = defaultdict(list)
         self.film_ratings = defaultdict(list)
@@ -157,7 +160,7 @@ class MFExperimental(MF):
                             break
 
     def train(self,
-              epochs: int = 600):
+              epochs: int = 600) -> None:
         plt.figure(figsize=(10, 7))
         x_labels = []
         y_labels = []
