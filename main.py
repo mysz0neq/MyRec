@@ -39,6 +39,8 @@ users,movies=tokenizer.users_movies_sets(data)
 data,u2i,i2u,m2i,i2m=tokenizer.tokenizer(data)
 
 import stats
+import prep
+import mf
 
 #c_u,c_f=stats.counters(data)
 ##print(len(c_u),len(c_f))
@@ -49,10 +51,9 @@ data_stats= stats.Stats(data)
 stats.print_df(data_stats.correlation_matrix('u'))
 
 
-import mf_numpy
+train,val,test=prep.train_val_test_split(data)
 
-model=mf_numpy.MF(data,DIM)
+mf_model=mf.MF(train,test,dim=30,lr_embeddings=LR_E,lr_biases=LR_B,reg_film_embeddings=LD_EF,reg_user_embeddings=LD_EU)
 
-model.optimizer(LR_E,LR_B,LD_EU,LD_EF)
-model.train(EPOCHS)
+mf_model.train(EPOCHS)
 

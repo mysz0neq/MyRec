@@ -40,10 +40,6 @@ class Analyzable:
             centiles_ratings.append(tuple(sorted(ratings)))
         return centiles_ratings
 
-
-
-
-
 class Stats:
     def __init__(self,
                  data:list[tuple[int,int,float]]) -> None:
