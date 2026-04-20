@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from collections import Counter, defaultdict
 import warnings
+import matplotlib.pyplot as plt
+import filtr
 
 class Analyzable:
     def __init__(self,
@@ -137,3 +139,54 @@ def print_df(df:pd.DataFrame) -> None:
                            ):
         print(df)
     return None
+
+def baseline_loss(train_set,val_set):
+    counter_users,_=filtr.counters(train_set)
+    user_sums = defaultdict(int)
+    if len(train_set) != 0:
+        global_mean = sum(o for _, _, o in train_set) / len(train_set)
+    else:
+        global_mean = 0
+    for u, _, o in train_set:
+        user_sums[u] += o
+
+    avg_user = {u: user_sums[u] / counter_users[u] for u in user_sums}
+
+    loss = 0
+    for u, _, o in val_set:
+        loss += (o - avg_user.get(u, global_mean)) ** 2
+    return loss / len(val_set)
+
+def plots(history):
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(20, 14))
+
+    ax[0, 0].set_title("Loss curves")
+    ax[0, 0].set_xlabel("Epoch")
+    ax[0, 0].set_ylabel("Loss value")
+    ax[0, 0].plot(history['x_labels'], history['train_labels'], label="Train loss")
+    ax[0, 0].plot(history['x_labels'], history['val_labels'], label="Validation loss")
+    ax[0, 0].axhline(history['test_loss'], linestyle='--', label="Test loss")
+    ax[0, 0].axhline(history['baseline_loss'], linestyle='--', label="Baseline loss")
+    ax[0, 0].legend()
+
+    ax[1, 0].set_title("Biases curves")
+    ax[1, 0].set_xlabel("Epoch")
+    ax[1, 0].set_ylabel("Bias avg. value")
+    ax[1, 0].plot(history['x_labels'], history['users_biases'], label="Users biases")
+    ax[1, 0].plot(history['x_labels'], history['films_biases'], label="Films biaes")
+    ax[1, 0].legend()
+
+    ax[0, 1].set_title("Embeddings norms curves")
+    ax[0, 1].set_xlabel("Epoch")
+    ax[0, 1].set_ylabel("Embedding norm avg. value")
+    ax[0, 1].plot(history['x_labels'], history['users_vectors'], label="Users embeddings norms")
+    ax[0, 1].plot(history['x_labels'], history['films_vectors'], label="Films embeddings norms")
+    ax[0, 1].legend()
+
+    ax[1, 1].set_title("Absolute values of biases curves")
+    ax[1, 1].set_xlabel("Epoch")
+    ax[1, 1].set_ylabel("Bias abs. avg. value")
+    ax[1, 1].plot(history['x_labels'], history['users_abs_biases'], label="Absolute values of users biases")
+    ax[1, 1].plot(history['x_labels'], history['films_abs_biases'], label="Absolute values of films biases")
+    ax[1, 1].legend()
+    plt.show()

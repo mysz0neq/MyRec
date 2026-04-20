@@ -1,13 +1,20 @@
+"""TODO: fine_tune, torch implementation, clean-up of the code, saving and loading trained model"""
+
+
 import numpy as np
 from random import shuffle
 from collections import defaultdict,Counter
-import tokenizer
-import matplotlib.pyplot as plt
+from copy import deepcopy
+
+import stats
+import preparation
 import filtr
+import time
 
 class MF:
     def __init__(self,
                  train_set:list,
+                 val_set:list,
                  test_set:list,
                  dim: int = 30,
                  lr_embeddings: float=0.004,
@@ -16,6 +23,7 @@ class MF:
                  reg_film_embeddings: float=0.06,
                  scale:float=0.001):
         self.train_set = train_set
+        self.val_set=val_set
         self.test_set = test_set
         self.dim = dim
         self.lr_e=lr_embeddings
@@ -23,7 +31,7 @@ class MF:
         self.ld_eu=reg_user_embeddings
         self.ld_ef=reg_film_embeddings
 
-        self.users,self.films=tokenizer.users_movies_sets(train_set)
+        self.users,self.films=preparation.users_movies_sets(train_set)
         self.counter_users,self.counter_films=filtr.counters(train_set)
 
         self.users_matrix,_=np.linalg.qr(np.random.normal(loc=0,
@@ -39,44 +47,110 @@ class MF:
         self.films_biases=np.zeros(shape=(len(self.films),))
 
         self.mean=np.mean([r for _,_,r in self.train_set])
+
+        self.baseline_loss=stats.baseline_loss(self.train_set,self.val_set)
     def predict(self,
                 uid:int,
                 fid:int) -> float:
         return np.dot(self.users_matrix[uid], self.films_matrix[fid]) + self.mean + self.users_biases[uid] + self.films_biases[fid]
+    def update_weights(self,
+                       uid,
+                       fid,
+                       grad_u,
+                       grad_f,
+                       der_bu,
+                       der_bf,
+                       user_modifier,
+                       film_modifier):
+        self.users_matrix[uid] -= self.lr_e * grad_u *user_modifier
+        self.films_matrix[fid] -= self.lr_e * grad_f *film_modifier
+        self.users_biases[uid] -= self.lr_b * der_bu *user_modifier
+        self.films_biases[fid] -= self.lr_b * der_bf *film_modifier
 
     def train(self,
               epochs: int = 600):
-        plt.figure(figsize=(10,7))
-        x_labels=[]
-        y_labels=[]
+
+        history={
+            'x_labels':[],
+            'val_labels':[],
+            'train_labels':[],
+            'users_biases':[],
+            'users_abs_biases':[],
+            'films_biases':[],
+            'films_abs_biases':[],
+            'users_vectors':[],
+            'films_vectors':[],
+            'baseline_loss':self.baseline_loss,
+            'test_loss':None
+        }
+
+        best_user_matrix = deepcopy(self.users_matrix)
+        best_film_matrix = deepcopy(self.films_matrix)
+        best_user_biases = deepcopy(self.users_biases)
+        best_film_biases = deepcopy(self.films_biases)
+
         prev_loss=float('inf')
+        best_loss=float('inf')
         patience=0
+
+
+        print("\nStarting Training:")
+        print("-" * 80)
+        start_time=time.time()
         for epoch in range(epochs):
             shuffle(self.train_set)
+
             for uid,fid,rtg in self.train_set:
-                der_bf, der_bu, grad_f, grad_u = self.step(fid, uid,rtg)
+                self.step(fid, uid,rtg)
 
-                self.users_matrix[uid]-=self.lr_e*grad_u/np.sqrt(self.counter_users[uid])
-                self.films_matrix[fid]-=self.lr_e*grad_f/np.sqrt(self.counter_films[fid])
-                self.users_biases[uid]-=self.lr_b*der_bu/np.sqrt(self.counter_users[uid])
-                self.films_biases[fid]-=self.lr_b*der_bf/np.sqrt(self.counter_films[fid])
-            loss = self.test_loss()
-            if loss>prev_loss:
-                patience+=1
-                if patience>=5:
-                    self.lr_b/=2
-                    self.lr_e/=2
-            else:
-                patience=0
-            prev_loss=loss
+            val_loss = self.loss_on_set(self.val_set)
+            train_loss = self.loss_on_set(self.train_set)
+            if val_loss < best_loss:
+                best_loss = val_loss
+                best_user_matrix = deepcopy(self.users_matrix)
+                best_film_matrix = deepcopy(self.films_matrix)
+                best_user_biases = deepcopy(self.users_biases)
+                best_film_biases = deepcopy(self.films_biases)
+
+            if epoch%50 == 0 and (epoch+1)>200:
+                if val_loss>prev_loss:
+                    patience+=1
+                    if patience>=2:
+                        self.lr_b/=2
+                        self.lr_e/=2
+                else:
+                    patience=0
+                prev_loss=val_loss
+
+            if self.lr_e<1e-6:
+                break
+
             if (epoch+1)%50==0:
-                print(f"Epoch: {epoch+1}, loss: {loss}")
-            x_labels.append(epoch)
-            y_labels.append(loss)
-        plt.plot(x_labels,y_labels)
-        plt.show()
+                print(f"Epoch: {epoch+1:4} | Val. loss: {val_loss:5.4f} (best: {best_loss:5.4f}) | Train loss: {train_loss:5.4f} | Patience: {patience}")
 
-    def step(self, fid:int, uid:int, rtg:float) -> tuple[float, float, np.ndarray, np.ndarray]:
+            history['x_labels'].append(epoch)
+            history['val_labels'].append(val_loss)
+            history['train_labels'].append(train_loss)
+            history['users_biases'].append(np.mean(self.users_biases))
+            history['films_biases'].append(np.mean(self.films_biases))
+            history['users_abs_biases'].append(np.mean(np.abs(self.users_biases)))
+            history['films_abs_biases'].append(np.mean(np.abs(self.films_biases)))
+            history['users_vectors'].append(np.mean(np.linalg.norm(self.users_matrix,axis=1)))
+            history['films_vectors'].append(np.mean(np.linalg.norm(self.films_matrix,axis=1)))
+
+        history['test_loss']=self.loss_on_set(self.test_set)
+        self.users_matrix=best_user_matrix
+        self.films_matrix=best_film_matrix
+        self.users_biases=best_user_biases
+        self.films_biases=best_film_biases
+        end_time=time.time()
+        print("\n","-"*80)
+        print("Finished training:")
+        print(f'Test loss: {self.loss_on_set(self.test_set):.4f} | Time: {end_time-start_time:.2f}s')
+
+        return history
+
+    def step(self, fid:int, uid:int, rtg:float) -> None:
         user_emb = self.users_matrix[uid]
         film_emb = self.films_matrix[fid]
 
@@ -89,14 +163,33 @@ class MF:
         grad_f = 2 * error * user_emb + self.ld_ef * film_emb
         der_bu = 2 * error
         der_bf = 2 * error
-        return der_bf, der_bu, grad_f, grad_u
 
-    def test_loss(self) -> float:
+        user_modifier = 1 / np.sqrt(self.counter_users[uid])
+        film_modifier = 1 / np.sqrt(self.counter_films[fid])
+
+        self.update_weights(uid, fid, grad_u, grad_f, der_bu, der_bf, user_modifier, film_modifier)
+
+        return None
+    def loss_on_set(self,which_set:list) -> float:
         loss = 0
-        for uid, fid, rtg in self.test_set:
-            loss += (self.predict(uid,fid)-rtg) ** 2
-        loss /= len(self.test_set)
+        for uid, fid, rtg in which_set:
+            loss += (self.predict(uid, fid) - rtg) ** 2
+        loss /= len(which_set)
         return loss
+
+    def fine_tune(self):
+        """Perform training on previously trained model using only new data:
+
+            * ratings from newly added users and films:
+                1. Extends weight matrices
+                2. Trains only new embeddings, freezing old ones
+
+            * new ratings from already existing users"""
+        raise NotImplementedError
+    def save(self):
+        raise NotImplementedError
+    def load(self):
+        raise NotImplementedError
 
 class MFExperimental(MF):
     """Weighing errors by how big a difference it really is for the user.
@@ -105,6 +198,7 @@ class MFExperimental(MF):
     Disclaimer: Needs a lot bigger learning rates than superclass, however I didn't figure out how much bigger."""
     def __init__(self,
                  train_set: list,
+                 val_set:list,
                  test_set: list,
                  dim: int = 30,
                  lr_embeddings: float = 4,
@@ -112,7 +206,7 @@ class MFExperimental(MF):
                  reg_user_embeddings: float = 0.06,
                  reg_film_embeddings: float = 0.06,
                  scale:float=0.01) -> None:
-        super().__init__(train_set,test_set,dim,lr_embeddings,lr_biases,reg_user_embeddings,reg_film_embeddings,scale)
+        super().__init__(train_set,val_set,test_set,dim,lr_embeddings,lr_biases,reg_user_embeddings,reg_film_embeddings,scale)
 
         self.user_ratings = defaultdict(list)
         self.film_ratings = defaultdict(list)
@@ -158,46 +252,7 @@ class MFExperimental(MF):
                         except StopIteration:
                             r = float('inf')
                             break
-
-    def train(self,
-              epochs: int = 600) -> None:
-        plt.figure(figsize=(10, 7))
-        x_labels = []
-        y_labels = []
-        prev_loss = float('inf')
-        patience = 0
-        for epoch in range(epochs):
-            shuffle(self.train_set)
-            for uid, fid, rtg in self.train_set:
-                der_bf, der_bu, grad_f, grad_u,pred = self.step(fid, rtg, uid)
-
-                rounded_pred = int(2 * pred) / 2
-                rounded_pred = 10 if rounded_pred > 10 else 1 if rounded_pred < 1 else rounded_pred
-                rounded_real = int(2 * rtg) / 2
-
-                user_error_weight=abs(self.user_counter_normalized[uid][rounded_pred]-self.user_counter_normalized[uid][rounded_real])
-                film_error_weight = abs(self.film_counter_normalized[fid][rounded_pred] - self.film_counter_normalized[fid][rounded_real])
-
-                self.users_matrix[uid]-= self.lr_e * grad_u / np.sqrt(self.counter_users[uid])*user_error_weight
-                self.films_matrix[fid]-= self.lr_e * grad_f / np.sqrt(self.counter_films[fid])*film_error_weight
-                self.users_biases[uid] -= self.lr_b * der_bu / np.sqrt(self.counter_users[uid])*user_error_weight
-                self.films_biases[fid] -= self.lr_b * der_bf / np.sqrt(self.counter_films[fid])*film_error_weight
-            loss = self.test_loss()
-            if loss > prev_loss:
-                patience += 1
-                if patience >= 3:
-                    self.lr_b /= 2
-                    self.lr_e /= 2
-            else:
-                patience = 0
-            prev_loss = loss
-            if (epoch + 1) % 50 == 0:
-                print(f"Epoch: {epoch + 1}, loss: {loss}")
-            x_labels.append(epoch)
-            y_labels.append(loss)
-        plt.plot(x_labels, y_labels)
-        plt.show()
-    def step(self, fid:int, uid:int,rtg:float) -> tuple[float, float, np.ndarray, np.ndarray, float]:
+    def step(self, fid:int, uid:int, rtg:float) -> None:
         user_emb = self.users_matrix[uid]
         film_emb = self.films_matrix[fid]
 
@@ -210,4 +265,15 @@ class MFExperimental(MF):
         grad_f = 2 * error * user_emb + self.ld_ef * film_emb
         der_bu = 2 * error
         der_bf = 2 * error
-        return der_bf, der_bu, grad_f, grad_u, pred
+
+        rounded_pred = int(2 * pred) / 2
+        rounded_pred = 10 if rounded_pred > 10 else 1 if rounded_pred < 1 else rounded_pred
+        rounded_real = int(2 * rtg) / 2
+
+        user_modifier = abs(
+            self.user_counter_normalized[uid][rounded_pred] - self.user_counter_normalized[uid][rounded_real]) / np.sqrt(self.counter_users[uid])
+        film_modifier = abs(
+            self.film_counter_normalized[fid][rounded_pred] - self.film_counter_normalized[fid][rounded_real]) / np.sqrt(self.counter_films[fid])
+
+        self.update_weights(uid, fid, grad_u, grad_f, der_bu, der_bf, user_modifier, film_modifier)
+        return None
