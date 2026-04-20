@@ -1,5 +1,5 @@
 """TODO: fine_tune, torch implementation, clean-up of the code, saving and loading trained model"""
-
+from argparse import ArgumentError
 
 import numpy as np
 from random import shuffle
@@ -10,6 +10,13 @@ import stats
 import preparation
 import filtr
 import time
+
+
+def create_matrix(nobj: list | set, ndim:int,scale) -> np.ndarray:
+    return np.linalg.qr(np.random.normal(loc=0,
+                                scale=1,
+                                size=(len(nobj), ndim)))[0]*scale
+
 
 class MF:
     def __init__(self,
@@ -30,18 +37,13 @@ class MF:
         self.lr_b=lr_biases
         self.ld_eu=reg_user_embeddings
         self.ld_ef=reg_film_embeddings
+        self.scale=scale
 
         self.users,self.films=preparation.users_movies_sets(train_set)
         self.counter_users,self.counter_films=filtr.counters(train_set)
 
-        self.users_matrix,_=np.linalg.qr(np.random.normal(loc=0,
-                                  scale=1,
-                                  size=(len(self.users),self.dim)))
-        self.films_matrix,_=np.linalg.qr(np.random.normal(loc=0,
-                                    scale=1,
-                                    size=(len(self.films), self.dim)))
-        self.users_matrix*=scale
-        self.films_matrix*=scale
+        self.users_matrix=create_matrix(self.users,self.dim,scale=self.scale)
+        self.films_matrix=create_matrix(self.films,self.dim,scale=self.scale)
 
         self.users_biases=np.zeros(shape=(len(self.users),))
         self.films_biases=np.zeros(shape=(len(self.films),))
@@ -49,6 +51,7 @@ class MF:
         self.mean=np.mean([r for _,_,r in self.train_set])
 
         self.baseline_loss=stats.baseline_loss(self.train_set,self.val_set)
+
     def predict(self,
                 uid:int,
                 fid:int) -> float:
@@ -68,7 +71,21 @@ class MF:
         self.films_biases[fid] -= self.lr_b * der_bf *film_modifier
 
     def train(self,
+              train_set:list[tuple[int,int,float]]=None,
+              val_set:list[tuple[int,int,float]]=None,
+              test_set:list[tuple[int,int,float]]=None,
               epochs: int = 600):
+        if not train_set and not val_set and not test_set:
+            train_set=self.train_set
+            val_set=self.val_set
+            test_set=self.test_set
+        elif train_set and val_set and test_set:
+            self.train_set+=train_set
+            self.val_set+=val_set
+            self.test_set+=test_set
+        else:
+            raise Exception("You have to specify all three sets")
+
 
         history={
             'x_labels':[],
@@ -98,13 +115,13 @@ class MF:
         print("-" * 80)
         start_time=time.time()
         for epoch in range(epochs):
-            shuffle(self.train_set)
+            shuffle(train_set)
 
-            for uid,fid,rtg in self.train_set:
+            for uid,fid,rtg in train_set:
                 self.step(fid, uid,rtg)
 
-            val_loss = self.loss_on_set(self.val_set)
-            train_loss = self.loss_on_set(self.train_set)
+            val_loss = self.loss_on_set(val_set)
+            train_loss = self.loss_on_set(train_set)
             if val_loss < best_loss:
                 best_loss = val_loss
                 best_user_matrix = deepcopy(self.users_matrix)
@@ -138,11 +155,12 @@ class MF:
             history['users_vectors'].append(np.mean(np.linalg.norm(self.users_matrix,axis=1)))
             history['films_vectors'].append(np.mean(np.linalg.norm(self.films_matrix,axis=1)))
 
-        history['test_loss']=self.loss_on_set(self.test_set)
+
         self.users_matrix=best_user_matrix
         self.films_matrix=best_film_matrix
         self.users_biases=best_user_biases
         self.films_biases=best_film_biases
+        history['test_loss'] = self.loss_on_set(self.test_set)
         end_time=time.time()
         print("\n","-"*80)
         print("Finished training:")
@@ -177,18 +195,36 @@ class MF:
         loss /= len(which_set)
         return loss
 
-    def fine_tune(self):
+    def fine_tune(self,
+                  new_tokenized_train:list[tuple[int,int,float]],
+                  epochs:int = 100):
         """Perform training on previously trained model using only new data:
 
             * ratings from newly added users and films:
                 1. Extends weight matrices
                 2. Trains only new embeddings, freezing old ones
 
-            * new ratings from already existing users"""
+            * new ratings from already existing users
+
+        FIXME: train,val,test sets"""
+        users,movies=preparation.users_movies_sets(new_tokenized_train)
+        new_users=users-self.users
+        new_movies=movies-self.films
+
+        self.users_matrix=np.stack([self.users_matrix,create_matrix(new_users,self.dim,scale=self.scale)])
+        self.films_matrix = np.stack([self.films_matrix, create_matrix(new_movies, self.dim, scale=self.scale)])
+
+        data_from_new=[(u,f,o) for u,f,o in new_tokenized_train if u in new_users or f in new_movies]
+
+        data_from_old=[(u,f,o) for u,f,o in new_tokenized_train if u not in new_users and f not in new_movies]
+
+        history=self.train(epochs=600,
+                           train_set=data_from_new)
+
         raise NotImplementedError
-    def save(self):
+    def save(self,path):
         raise NotImplementedError
-    def load(self):
+    def load(self,path):
         raise NotImplementedError
 
 class MFExperimental(MF):
