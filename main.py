@@ -14,7 +14,7 @@ print(f'Seed: {seed}')
 np.random.seed(seed)
 random.seed(seed)
 
-EPOCHS = 500
+EPOCHS = 5
 LR_E=0.004
 LR_B=0.005
 LD_EU=0.06
@@ -55,5 +55,6 @@ train,val,test=preparation.train_val_test_split(data,0.8,0.1,0.1)
 mf_model=mf.MF(train,val,test,dim=30,lr_embeddings=LR_E,lr_biases=LR_B,reg_film_embeddings=LD_EF,reg_user_embeddings=LD_EU)
 
 history=mf_model.train(EPOCHS)
+print(mf_model.fine_tune([(1345,45391,2)],5))
 stats.plots(history)
 
