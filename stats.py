@@ -1,4 +1,5 @@
-"""Data analysis tools."""
+"""Data analysis tools.
+TODO: best loss point in plots, points when learning rate got lowered, derivatives"""
 
 import pandas as pd
 import numpy as np
@@ -158,35 +159,59 @@ def baseline_loss(train_set,val_set):
     return loss / len(val_set)
 
 def plots(history):
-    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(20, 14))
+    fig, ax = plt.subplots(nrows=4, ncols=2, figsize=(20, 28))
 
     ax[0, 0].set_title("Loss curves")
-    ax[0, 0].set_xlabel("Epoch")
     ax[0, 0].set_ylabel("Loss value")
     ax[0, 0].plot(history['x_labels'], history['train_labels'], label="Train loss")
     ax[0, 0].plot(history['x_labels'], history['val_labels'], label="Validation loss")
     ax[0, 0].axhline(history['test_loss'], linestyle='--', label="Test loss")
     ax[0, 0].axhline(history['baseline_loss'], linestyle='--', label="Baseline loss")
-    ax[0, 0].legend()
 
     ax[1, 0].set_title("Biases curves")
-    ax[1, 0].set_xlabel("Epoch")
     ax[1, 0].set_ylabel("Bias avg. value")
     ax[1, 0].plot(history['x_labels'], history['users_biases'], label="Users biases")
     ax[1, 0].plot(history['x_labels'], history['films_biases'], label="Films biaes")
-    ax[1, 0].legend()
 
     ax[0, 1].set_title("Embeddings norms curves")
-    ax[0, 1].set_xlabel("Epoch")
     ax[0, 1].set_ylabel("Embedding norm avg. value")
     ax[0, 1].plot(history['x_labels'], history['users_vectors'], label="Users embeddings norms")
     ax[0, 1].plot(history['x_labels'], history['films_vectors'], label="Films embeddings norms")
-    ax[0, 1].legend()
 
     ax[1, 1].set_title("Absolute values of biases curves")
-    ax[1, 1].set_xlabel("Epoch")
     ax[1, 1].set_ylabel("Bias abs. avg. value")
     ax[1, 1].plot(history['x_labels'], history['users_abs_biases'], label="Absolute values of users biases")
     ax[1, 1].plot(history['x_labels'], history['films_abs_biases'], label="Absolute values of films biases")
-    ax[1, 1].legend()
+
+    ###DERIVATIVES
+    ax[2, 0].set_title("Loss curves difference")
+    ax[2, 0].set_ylabel("Loss difference value")
+    ax[2, 0].plot(history['x_labels'], difference_fun(history['train_labels']), label="Train loss")
+    ax[2, 0].plot(history['x_labels'], difference_fun(history['val_labels']), label="Validation loss")
+
+    ax[3, 0].set_title("Biases curves difference")
+    ax[3, 0].set_ylabel("Bias avg. difference value")
+    ax[3, 0].plot(history['x_labels'], difference_fun(history['users_biases']), label="Users biases")
+    ax[3, 0].plot(history['x_labels'], difference_fun(history['films_biases']), label="Films biaes")
+
+    ax[2, 1].set_title("Embeddings norms curves difference")
+    ax[2, 1].set_ylabel("Embedding norm avg. difference value")
+    ax[2, 1].plot(history['x_labels'], difference_fun(history['users_vectors']), label="Users embeddings norms")
+    ax[2, 1].plot(history['x_labels'], difference_fun(history['films_vectors']), label="Films embeddings norms")
+
+    ax[3, 1].set_title("Absolute values of biases curves difference")
+    ax[3, 1].set_ylabel("Bias abs. avg. difference value")
+    ax[3, 1].plot(history['x_labels'], difference_fun(history['users_abs_biases']), label="Absolute values of users biases")
+    ax[3, 1].plot(history['x_labels'], difference_fun(history['films_abs_biases']), label="Absolute values of films biases")
+
+    for a in ax.flat:
+        a.set_xlabel("Epoch")
+        a.axvline(history['best_loss_epoch'], lw=1.5, linestyle=(0, (5, 10)), label="Best loss epoch",
+                         color='red')
+        for point in history['lr_lowering_points']:
+            a.axvline(point, linestyle='solid', alpha=0.8, lw=0.6, color='green')
+        a.legend()
     plt.show()
+
+def difference_fun(y:list):
+    return np.insert(np.diff(y),0,0)

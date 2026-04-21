@@ -1,10 +1,10 @@
 """TODO: fine_tune, torch implementation, clean-up of the code, saving and loading trained model"""
-from argparse import ArgumentError
 
 import numpy as np
 from random import shuffle
 from collections import defaultdict,Counter
 from copy import deepcopy
+import pickle
 
 import stats
 import preparation
@@ -98,7 +98,9 @@ class MF:
             'users_vectors':[],
             'films_vectors':[],
             'baseline_loss':self.baseline_loss,
-            'test_loss':None
+            'test_loss':None,
+            'best_loss_epoch':None,
+            'lr_lowering_points':[]
         }
 
         best_user_matrix = deepcopy(self.users_matrix)
@@ -128,6 +130,7 @@ class MF:
                 best_film_matrix = deepcopy(self.films_matrix)
                 best_user_biases = deepcopy(self.users_biases)
                 best_film_biases = deepcopy(self.films_biases)
+                history['best_loss_epoch']=epoch
 
             if epoch%50 == 0 and (epoch+1)>200:
                 if val_loss>prev_loss:
@@ -135,6 +138,7 @@ class MF:
                     if patience>=2:
                         self.lr_b/=2
                         self.lr_e/=2
+                        history['lr_lowering_points'].append(epoch)
                 else:
                     patience=0
                 prev_loss=val_loss
@@ -162,9 +166,9 @@ class MF:
         self.films_biases=best_film_biases
         history['test_loss'] = self.loss_on_set(self.test_set)
         end_time=time.time()
-        print("\n","-"*80)
+        print("-"*80)
         print("Finished training:")
-        print(f'Test loss: {self.loss_on_set(self.test_set):.4f} | Time: {end_time-start_time:.2f}s')
+        print(f'Test loss: {self.loss_on_set(self.test_set):.4f} | Time: {end_time-start_time:.2f}s\n')
 
         return history
 
