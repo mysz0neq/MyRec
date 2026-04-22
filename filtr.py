@@ -1,6 +1,7 @@
 """Cleans data"""
 
 from collections import defaultdict
+from numpy import mean
 
 def iteration(data: list[tuple[str|int,str|int,float]],
               min_u:int,
@@ -14,7 +15,7 @@ def iteration(data: list[tuple[str|int,str|int,float]],
             new_data.append((u,f,r))
     return new_data
 
-def counters(data: list[tuple[str|int,str|int,float]]) -> tuple[defaultdict[str|int,float],defaultdict[str|int,float]]:
+def counters(data: list[tuple[str|int,str|int,float]]) -> tuple[defaultdict[str|int,int],defaultdict[str|int,int]]:
     """Returns counter dictionaries with number of records for each user and movie"""
 
     counter_u=defaultdict(int)
@@ -23,6 +24,16 @@ def counters(data: list[tuple[str|int,str|int,float]]) -> tuple[defaultdict[str|
         counter_u[u]+=1
         counter_f[f]+=1
     return counter_u,counter_f
+
+def means(data:list[tuple[str|int,str|int,float]]) -> tuple[dict[str|int,float],dict[str|int,float]]:
+    ratings_u = defaultdict(list)
+    ratings_f = defaultdict(list)
+    for u, f, r in data:
+        ratings_u[u].append(r)
+        ratings_f[f].append(r)
+    means_u={u:float(mean(ratings_u[u])) for u in ratings_u}
+    means_f = {f: float(mean(ratings_f[f])) for f in ratings_f}
+    return means_u,means_f
 
 def filtr(data: list[tuple[str|int,str|int,float]],
           min_u:int,

@@ -1,5 +1,4 @@
 """TODO: custom exceptions hierarchy
-TODO: API!!!
 TODO: settings file/dict"""
 
 import numpy as np

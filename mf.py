@@ -3,6 +3,7 @@ TODO: clean-up of the code
 TODO: MFExperimental fixing
 TODO: static counter - model_id
 FIXME: overwriting old ratings causes duplicates in self.train_set - change data structure from list to dict"""
+import warnings
 
 import numpy as np
 from random import shuffle
@@ -239,6 +240,7 @@ class MF:
             loss /= len(which_set)
         return loss
 
+
     def fine_tune(self,
                   new_tokenized_train:list[tuple[int,int,float]],
                   new_tokenized_val,
@@ -252,6 +254,7 @@ class MF:
                 2. Trains only new embeddings, freezing old ones
 
             * new ratings from already existing users"""
+        warnings.warn("This method is currently not working properly.")
         print("\nInitializing fine tuning...\n")
         users,movies=preparation.users_movies_sets(new_tokenized_train+self.train_set)
         new_users=users-self.users
