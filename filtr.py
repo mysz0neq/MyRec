@@ -26,7 +26,7 @@ def counters(data: list[tuple[str|int,str|int,float]]) -> tuple[defaultdict[str|
 
 def filtr(data: list[tuple[str|int,str|int,float]],
           min_u:int,
-          min_f:int) -> list[tuple[str,str,float]]:
+          min_f:int) -> list[tuple[str|int,str|int,float]]:
     """Implements K-core filtering algorithm to clean
     data records from users with less than min_u
     ratings and movies less than min_f ratings"""

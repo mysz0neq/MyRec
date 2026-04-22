@@ -1,5 +1,4 @@
-"""Data analysis tools.
-TODO: best loss point in plots, points when learning rate got lowered, derivatives"""
+"""Data analysis tools."""
 
 import pandas as pd
 import numpy as np
@@ -7,6 +6,7 @@ from collections import Counter, defaultdict
 import warnings
 import matplotlib.pyplot as plt
 import filtr
+
 
 class Analyzable:
     def __init__(self,

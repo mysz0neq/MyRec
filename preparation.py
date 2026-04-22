@@ -65,7 +65,8 @@ def tokenizer(data: list[tuple[str,str,float]],
         base_m2i.update({f: i for i, f in enumerate(new_movies, start=len(base_m2i))})
     else:
         raise RuntimeError("Something failed while creating movies dictionaries and sets.")
-
+    current_users.update(base_users)
+    current_movies.update(base_movies)
 
     u2i:dict[str,int]=deepcopy(base_u2i)
     m2i:dict[str,int]=deepcopy(base_m2i)
@@ -78,10 +79,10 @@ def tokenizer(data: list[tuple[str,str,float]],
     for u,f,r in data:
         tokenized_data.append((u2i[u],m2i[f],r))
     if len(new_movies)==0 and len(new_users)==0:
-        print(f"\nTokenized {len(tokenized_data):6} records\nUsers count: {len(current_users):4}\nFilms count: {len(current_movies):4}")
+        print(f"\nTokenized {len(tokenized_data):7} records\nUsers count: {len(current_users):4}\nFilms count: {len(current_movies):4}")
     else:
         print(
-            f"\nTokenized {len(tokenized_data):6} new records\nUsers count: {len(current_users):4} (+{len(new_users)})\nFilms count: {len(current_movies):4} (+{len(new_movies)})")
+            f"\nTokenized {len(tokenized_data):7} new records\nUsers count: {len(current_users):4} (+{len(new_users)})\nFilms count: {len(current_movies):4} (+{len(new_movies)})")
     return tokenized_data,u2i,i2u,m2i,i2m,current_users,current_movies
 
 import random
