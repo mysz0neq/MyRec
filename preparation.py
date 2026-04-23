@@ -27,18 +27,18 @@ def tokenizer(data: list[tuple[str,str,float]],
 
     elif base_users and not base_u2i:
         warnings.warn("Base users set specified without users dictionary given!\nBase dictionary created from base users set.")
-        base_u2i={u:i for i,u in enumerate(base_users)}
+        base_u2i={u:i for i,u in enumerate(sorted(list(base_users)))}
 
     if not base_users and not base_u2i: #kiedy puszczamy po raz pierwszy - ma wypluć zbiór userów i u2i
         print("Operating in first time run mode.\nCreated users set and dictionary.")
         base_users=current_users
         new_users=set()
-        base_u2i = {u: i for i, u in enumerate(base_users)}
+        base_u2i = {u: i for i, u in enumerate(sorted(list(base_users)))}
 
     elif base_users and base_u2i: #fine tune - ma wypluc zbior userów i u2i
         print("Operating in fine tuning mode.\nCreated new_users set and updated base dictionary.")
         new_users=current_users-base_users
-        base_u2i.update({u:i for i,u in enumerate(new_users,start=len(base_u2i))})
+        base_u2i.update({u:i for i,u in enumerate(sorted(list(new_users)),start=len(base_u2i))})
     else:
         raise RuntimeError("Something failed while creating users dictionaries and sets.")
 
@@ -51,18 +51,18 @@ def tokenizer(data: list[tuple[str,str,float]],
     elif base_movies and not base_m2i:
         warnings.warn(
             "Base films set specified without films dictionary given!\nBase dictionary created from base films set.")
-        base_m2i = {f: i for i, f in enumerate(base_movies)}
+        base_m2i = {f: i for i, f in enumerate(sorted(list(base_movies)))}
 
     if not base_movies and not base_m2i:  # kiedy puszczamy po raz pierwszy - ma wypluć zbiór userów i u2i
         print("Operating in first time run mode.\nCreated films set and dictionary.")
         base_movies = current_movies
         new_movies = set()
-        base_m2i = {f: i for i, f in enumerate(base_movies)}
+        base_m2i = {f: i for i, f in enumerate(sorted(list(base_movies)))}
 
     elif base_movies and base_m2i:  # fine tune - ma wypluc zbior userów i u2i
         print("Operating in fine tuning mode.\nCreated new_movies set and updated base dictionary.")
         new_movies = current_movies - base_movies
-        base_m2i.update({f: i for i, f in enumerate(new_movies, start=len(base_m2i))})
+        base_m2i.update({f: i for i, f in enumerate(sorted(list(new_movies)), start=len(base_m2i))})
     else:
         raise RuntimeError("Something failed while creating movies dictionaries and sets.")
     current_users.update(base_users)

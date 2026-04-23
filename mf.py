@@ -298,9 +298,9 @@ class MF:
 
         return history
 
-    def save(self,path):
+    def save(self,path,u2i,i2u,m2i,i2m):
         with open(path,'wb') as f:
-            pickle.dump(self,f)
+            pickle.dump((self,u2i,i2u,m2i,i2m),f)
         print(f"Successfully saved the model to path {path}")
 
     @classmethod
