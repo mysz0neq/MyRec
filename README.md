@@ -11,7 +11,7 @@ The first lines of code in my life were written for this project, so it has been
 * **Separation of concerns design:** Every file focuses on solving one problem.
 * **API and demo console UI:** In the `implementation.py` file there are API and UI classes ready for interaction with the user.
 * **Vectorized statistics:** Stats calculations, rankings, and correlation matrices are handled by Pandas `DataFrame` operations for maximum performance. 
-* **Training history:** .train() method returns a history dictionary which can be integrated with the `stats.plots()` method for creating plots including finite-difference plots.
+* **Training history:** `.train()` method returns a history dictionary which can be integrated with the `stats.plots()` method for creating plots including finite-difference plots.
 
 ## Usage:
 
