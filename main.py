@@ -2,91 +2,65 @@
 TODO: settings file/dict"""
 
 import numpy as np
-from pathlib import Path
 import random
+import model_training
+import implementation
+import preparation
+import data_loading
+import stats
+import data_filter
 import pickle
 
-import api
-
-seed = 3972#int(time.time()*1000)%10000
+seed = 3972  # int(time.time()*1000)%10000
 print(f'Seed: {seed}')
 np.random.seed(seed)
 random.seed(seed)
 
-EPOCHS = 1000
-LR_E=0.004
-LR_B=0.005
-LD_EU=0.06
-LD_EF=0.06
-DIM=30
+LOAD_DATA = True
+TRAIN_NEW_MODEL = False
+CREATE_PLOTS = False
+CREATE_NEW_API = False
+USE_UI = True
 
-MIN_U=20
-MIN_F=20
+EPOCHS = 10
+LR_E = 0.004
+LR_B = 0.005
+LD_EU = 0.06
+LD_EF = 0.06
+DIM = 30
 
-PATH=Path(__file__).parent
-DB_PATH=PATH.joinpath("baza.db")
+MIN_U = 20
+MIN_F = 20
 
-import data
-import filtr
-import preparation
+DB_PATH = "data/baza.db"
 
-data=data.get_data(DB_PATH)
-#print(len(data))
-data=filtr.filtr(data=data,min_u=MIN_U,min_f=MIN_F)
-#print(len(data))
-data,u2i,i2u,m2i,i2m,users,movies=preparation.tokenizer(data)
+if LOAD_DATA or TRAIN_NEW_MODEL or CREATE_NEW_API or CREATE_PLOTS:
+    data = data_loading.get_data(DB_PATH)
+    if TRAIN_NEW_MODEL:
+        data = data_filter.kcore_filter(data=data, min_u=MIN_U, min_f=MIN_F)
+        tokenized_data, u2i, i2u, m2i, i2m, users, movies = preparation.tokenizer(data)
 
-import stats
-import mf
+        train, val, test = preparation.train_val_test_split(tokenized_data, 0.8, 0.1, 0.1)
 
-#c_u,c_f=stats.counters(data)
-##print(len(c_u),len(c_f))
-#print(len(data))
-#print(c_u)
-data_stats= stats.Stats(data)
+        mf_model = model_training.MF(train, val, test, dim=30, lr_embeddings=LR_E, lr_biases=LR_B,
+                                     reg_film_embeddings=LD_EF,
+                                     reg_user_embeddings=LD_EU)
 
-#stats.print_df(new_data_stats.correlation_matrix('u'))
+        history1 = mf_model.train(epochs=EPOCHS)
+        mf_model.save(path='models/model1.mf', u2i=u2i, i2u=i2u, m2i=m2i, i2m=i2m)
+        with open('models/history.pkl', 'wb') as f:
+            pickle.dump(history1, f)
+        if CREATE_NEW_API:
+            mf_model, u2i, i2u, m2i, i2m = model_training.MF.load('models/model1.mf')
+            model_api = implementation.API(model=mf_model, u2i=u2i, m2i=m2i, data=tokenized_data)
+            model_api.save('models/api.api')
+    if CREATE_PLOTS:
+        data_stats = stats.Stats(data)
+        stats.print_df(data_stats.correlation_matrix('u'))
+        with open('models/history.pkl', 'rb') as f:
+            history1 = pickle.load(f)
+        stats.plots(history1)
 
-#stats.print_df(data_stats.correlation_matrix('u'))
-
-
-train,val,test=preparation.train_val_test_split(data,0.8,0.1,0.1)
-
-
-mf_model=mf.MF(train,val,test,dim=30,lr_embeddings=LR_E,lr_biases=LR_B,reg_film_embeddings=LD_EF,reg_user_embeddings=LD_EU)
-
-history1=mf_model.train(epochs=EPOCHS)
-mf_model.save(path='model1.mf',u2i=u2i,i2u=i2u,m2i=m2i,i2m=i2m)
-mf_model,u2i,i2u,m2i,i2m=mf.MF.load('model1.mf')
-print(u2i['szymon'])
-
-
-model_api=api.API(mf_model,u2i,m2i,data)
-
-stats.print_df(model_api.recommendation({model_api.i2u_obj[u2i['szymon']]:{'rewatches':0,'pick_only_from':None,'exclude':None,'min_predict':None,'max_predict':None,'min_ratings':None,'max_ratings':None}}))
-
-
-ft_data=[
-    ('nikola s','co sie zdarzylo baby jane',10),
-    ('nikola s','bulwar zachodzacego slonca',10),
-    ('nikola s','mulholland drive',10),
-    ('matka','zabawa w pochowanego 2',7),
-    ('muffinka1999','zabicie swietego jelenia',5),
-    ('magic lve','jerry maguire',7),
-    ('kacper traczykowski','osiem milimetrow',5),
-    ('dajmian','blue moon',5),
-    ('yune yamamoto','pomoc domowa',6),
-    ('kamil pietrowski','ewolucja planety malp',7)
-]
-#new_data,new_u2i,new_i2u,new_m2i,new_i2m,new_users,new_movies=preparation.tokenizer(ft_data,base_users=users,base_movies=movies,base_m2i=m2i,base_u2i=u2i)
-#new_data_stats=stats.Stats(new_data)
-#new_train,new_val,new_test=preparation.train_val_test_split(new_data,0.8,0.1,0.1)
-#history2=mf_model.fine_tune(new_train,new_val,new_test,1000)
-#mf_model.save('model2.mf')
-import pickle
-#with open('history.pkl','wb') as f:
-    #pickle.dump((history1,history2),f)
-#with open('history.pkl','rb') as f:
-    #history1,history2=pickle.load(f)
-#stats.plots(history1)
-#stats.plots(history2)
+if USE_UI:
+    ui = implementation.UI(api_path='models/api.api')
+    ui.main()
