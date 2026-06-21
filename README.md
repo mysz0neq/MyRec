@@ -8,7 +8,6 @@ The first lines of code in my life were written for this project, so it has been
 * **Custom machine learning engine:** Matrix Factorization implemented via Stochastic Gradient Descent (SGD) in pure NumPy. Features dynamic learning rate, early stopping, and L2 regularization.
 * **PCA-proof Initialization:** Weight matrices are initialized using the QR algorithm to ensure orthogonal and independent components from epoch 0, preventing any correlation in the warm-up phase.
 * **Group recommendations:** Implemented a group recommendation algorithm tailored for multiple users (e.g. couples or friends). It sorts recommendations by minimal predicted rating out of the entire group, which I found to be the best solution, and later realised that it's been actually scientifically proven to be the best solution (called "Least misery" strategy).
-* **Separation of concerns design:** Every file focuses on solving one problem.
 * **API and demo console UI:** In the `implementation.py` file there are API and UI classes ready for interaction with the user.
 * **Vectorized statistics:** Stats calculations, rankings, and correlation matrices are handled by Pandas `DataFrame` operations for maximum performance. 
 * **Training history:** `.train()` method returns a history dictionary which can be integrated with the `stats.plots()` method for creating plots and their finite-difference plots.
